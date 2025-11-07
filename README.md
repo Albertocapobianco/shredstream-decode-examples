@@ -37,3 +37,14 @@ cargo run -- --shredstream-uri <url> --x-token <authtoken> --account-include 675
 ## Notes
 
 Jito Shredstream Proxy: [https://github.com/jito-labs/shredstream-proxy]
+
+## Python client
+
+A Python port of the streaming client is available in `shredstream_client.py`.
+Install the required dependencies (generated protos, `grpcio`, and `solders`) and run:
+
+```bash
+python shredstream_client.py --shredstream-uri <url> --x-token <authtoken>
+```
+
+You can also pass `--account-include` with a space-separated list of accounts to filter by.
