@@ -68,7 +68,9 @@ If you downloaded a ZIP archive instead of cloning, manually download the
 
 The Python client expects the generated protobuf code under `python/jito_protos/shredstream/`.
 Once the `.proto` definitions are present in `jito_protos/protos/`, run the following
-command to generate the Python bindings in-place:
+command to generate the Python bindings in-place. The helper will also download
+`shredstream.proto` automatically if it is missing (for example when you downloaded
+this repository as a ZIP without submodules):
 
 ```bash
 # macOS / Linux (single line)
@@ -90,12 +92,22 @@ python -m python.generate_protos
 
 This writes `shredstream_pb2.py` and `shredstream_pb2_grpc.py` into the
 `python/jito_protos/shredstream/` package. The client automatically adds the `python/`
-directory to `PYTHONPATH`, so no additional packaging steps are required.
+directory to `PYTHONPATH`, and if the generated modules are missing it will invoke the
+helper above for you. No additional packaging steps are required.
 
 ### 4. Run the client
 
 ```bash
 python shredstream_client.py --shredstream-uri <url> --x-token <authtoken>
+```
+
+On Windows you can use the `py` launcher with either the script path or the
+module flag:
+
+```powershell
+py shredstream_client.py --shredstream-uri <url> --x-token <authtoken>
+# or
+py -m shredstream_client --shredstream-uri <url> --x-token <authtoken>
 ```
 
 You can also pass `--account-include` with a space-separated list of accounts to filter by.

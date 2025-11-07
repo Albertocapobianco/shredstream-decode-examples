@@ -27,8 +27,27 @@ def _ensure_local_proto_path() -> None:
 
 _ensure_local_proto_path()
 
-from jito_protos.shredstream import shredstream_pb2  # noqa: E402  pylint: disable=wrong-import-position
-from jito_protos.shredstream import shredstream_pb2_grpc as shredstream_grpc  # noqa: E402  pylint: disable=wrong-import-position
+try:  # noqa: E402  pylint: disable=wrong-import-position
+    from jito_protos.shredstream import shredstream_pb2
+    from jito_protos.shredstream import shredstream_pb2_grpc as shredstream_grpc
+except ImportError as import_error:  # noqa: E402  pylint: disable=wrong-import-position
+    try:
+        from python import generate_protos
+    except ImportError as helper_error:  # noqa: E402  pylint: disable=wrong-import-position
+        raise ImportError(
+            "Could not import the generated protobuf modules. "
+            "Please run `python -m python.generate_protos` first."
+        ) from helper_error
+
+    exit_code = generate_protos.main()
+    if exit_code != 0:
+        raise ImportError(
+            "Automatic protobuf generation failed. Check the logs above and "
+            "ensure grpcio-tools is installed."
+        ) from import_error
+
+    from jito_protos.shredstream import shredstream_pb2
+    from jito_protos.shredstream import shredstream_pb2_grpc as shredstream_grpc
 from solders.pubkey import Pubkey  # noqa: E402  pylint: disable=wrong-import-position
 from solders.entry import Entries  # noqa: E402  pylint: disable=wrong-import-position
 
