@@ -1,47 +1,34 @@
 """Helper script to generate the Python protobuf stubs for the shredstream client."""
 from __future__ import annotations
 
+import sys
 import textwrap
 import urllib.error
 import urllib.request
 from pathlib import Path
-import sys
+from typing import Iterable
 
+import grpc_tools
 from grpc_tools import protoc
 
 
-PROTO_URL = (
-    "https://raw.githubusercontent.com/jito-labs/mev-protos/main/protos/shredstream.proto"
-)
+RAW_BASE_URL = "https://raw.githubusercontent.com/jito-labs/mev-protos/main"
+REQUIRED_PROTOS: dict[Path, str] = {
+    Path("shredstream.proto"): f"{RAW_BASE_URL}/protos/shredstream.proto",
+    Path("shared.proto"): f"{RAW_BASE_URL}/protos/shared.proto",
+}
 
 
-def _ensure_proto(proto_file: Path) -> bool:
-    """Ensure that ``shredstream.proto`` is available locally.
-
-    If the file is missing (common when the repository is downloaded as a ZIP without
-    submodules), we attempt to download it from the upstream mev-protos repository.
-    """
-
-    if proto_file.exists():
-        return True
-
-    print(
-        textwrap.dedent(
-            f"""
-            Could not find {proto_file}.
-            Trying to download the file from {PROTO_URL} …
-            """
-        ).strip()
-    )
-
+def _download(url: str, destination: Path) -> bool:
+    request = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
     try:
-        with urllib.request.urlopen(PROTO_URL, timeout=30) as response:  # nosec - trusted host
-            proto_bytes = response.read()
+        with urllib.request.urlopen(request, timeout=30) as response:  # nosec - trusted host
+            data = response.read()
     except (urllib.error.URLError, TimeoutError) as exc:
         print(
             textwrap.dedent(
                 f"""
-                Failed to download shredstream.proto automatically: {exc}
+                Failed to download {url}: {exc}
                 Please either initialise the mev-protos submodule with
                   git submodule update --init --recursive
                 or copy the contents of https://github.com/jito-labs/mev-protos
@@ -52,29 +39,75 @@ def _ensure_proto(proto_file: Path) -> bool:
         )
         return False
 
-    proto_file.parent.mkdir(parents=True, exist_ok=True)
-    proto_file.write_bytes(proto_bytes)
-    print(f"Saved shredstream.proto to {proto_file}.")
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    destination.write_bytes(data)
+    print(f"Saved {destination.name} to {destination}.")
     return True
+
+
+def _ensure_protos(proto_root: Path) -> bool:
+    missing: list[tuple[Path, str]] = []
+    for relative_path, url in REQUIRED_PROTOS.items():
+        target = proto_root / relative_path
+        if target.exists():
+            continue
+        missing.append((target, url))
+
+    if not missing:
+        return True
+
+    for target, url in missing:
+        print(
+            textwrap.dedent(
+                f"""
+                Could not find {target}.
+                Attempting to download the file from {url} …
+                """
+            ).strip()
+        )
+        if not _download(url, target):
+            return False
+
+    return True
+
+
+def _grpc_tools_include() -> Path:
+    include_dir = Path(grpc_tools.__file__).resolve().parent / "_proto"
+    if not include_dir.exists():
+        raise FileNotFoundError(
+            f"Could not locate the bundled google protobuf includes under {include_dir}."
+        )
+    return include_dir
+
+
+def _build_args(
+    include_paths: Iterable[Path], proto_files: Iterable[Path], output_dir: Path
+) -> list[str]:
+    args = ["grpc_tools.protoc"]
+    for include in include_paths:
+        args.append(f"-I{include}")
+
+    args.extend(
+        [
+            f"--python_out={output_dir}",
+            f"--grpc_python_out={output_dir}",
+        ]
+    )
+    args.extend(str(path) for path in proto_files)
+    return args
 
 
 def main() -> int:
     repo_root = Path(__file__).resolve().parents[1]
     proto_root = repo_root / "jito_protos" / "protos"
     output_dir = repo_root / "python"
-    proto_file = proto_root / "shredstream.proto"
+    proto_files = [proto_root / relative for relative in REQUIRED_PROTOS]
 
-    if not _ensure_proto(proto_file):
+    if not _ensure_protos(proto_root):
         return 1
 
-    args = [
-        "grpc_tools.protoc",
-        f"-I{proto_root}",
-        f"--python_out={output_dir}",
-        f"--grpc_python_out={output_dir}",
-        str(proto_file),
-    ]
-
+    include_paths = [proto_root, _grpc_tools_include()]
+    args = _build_args(include_paths, proto_files, output_dir)
     return protoc.main(args)
 
 

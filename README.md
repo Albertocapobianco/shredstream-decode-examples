@@ -62,28 +62,32 @@ git submodule update --init --recursive
 
 If you downloaded a ZIP archive instead of cloning, manually download the
 `mev-protos` repository and copy its contents into `jito_protos/protos/` so that
-`jito_protos/protos/shredstream.proto` exists locally.
+at least `jito_protos/protos/shredstream.proto` and `jito_protos/protos/shared.proto`
+exist locally.
 
 ### 3. Generate the protobuf stubs
 
 The Python client expects the generated protobuf code under `python/jito_protos/shredstream/`.
-Once the `.proto` definitions are present in `jito_protos/protos/`, run the following
-command to generate the Python bindings in-place. The helper will also download
-`shredstream.proto` automatically if it is missing (for example when you downloaded
-this repository as a ZIP without submodules):
+Once the `.proto` definitions are present in `jito_protos/protos/`, run one of the
+following commands to generate the Python bindings in-place. The helper now downloads
+both `shredstream.proto` and its dependency `shared.proto` automatically (for example
+when you downloaded this repository as a ZIP without submodules) and configures the
+include paths bundled with `grpcio-tools` so that `google/protobuf/*.proto` is found
+correctly:
 
 ```bash
 # macOS / Linux (single line)
-python -m grpc_tools.protoc -I jito_protos/protos --python_out=python --grpc_python_out=python jito_protos/protos/shredstream.proto
+python -m grpc_tools.protoc -I jito_protos/protos --python_out=python --grpc_python_out=python jito_protos/protos/shared.proto jito_protos/protos/shredstream.proto
 
 # Windows PowerShell (single line)
-python -m grpc_tools.protoc -I jito_protos/protos --python_out=python --grpc_python_out=python jito_protos/protos\shredstream.proto
+python -m grpc_tools.protoc -I jito_protos/protos --python_out=python --grpc_python_out=python jito_protos\protos\shared.proto jito_protos\protos\shredstream.proto
 
 # Windows cmd.exe (use caret for line continuations)
 python -m grpc_tools.protoc ^
   -I jito_protos/protos ^
   --python_out=python ^
   --grpc_python_out=python ^
+  jito_protos/protos/shared.proto \
   jito_protos/protos/shredstream.proto
 
 # Cross-platform helper (runs the command via a Python module)
