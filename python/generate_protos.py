@@ -11,7 +11,7 @@ def main() -> int:
     repo_root = Path(__file__).resolve().parents[1]
     proto_root = repo_root / "jito_protos" / "protos"
     output_dir = repo_root / "python"
-    proto_file = proto_root / "shredstream" / "shredstream_proxy.proto"
+    proto_file = proto_root / "shredstream.proto"
 
     if not proto_file.exists():
         print(

@@ -62,7 +62,7 @@ git submodule update --init --recursive
 
 If you downloaded a ZIP archive instead of cloning, manually download the
 `mev-protos` repository and copy its contents into `jito_protos/protos/` so that
-`jito_protos/protos/shredstream/shredstream_proxy.proto` exists locally.
+`jito_protos/protos/shredstream.proto` exists locally.
 
 ### 3. Generate the protobuf stubs
 
@@ -72,23 +72,23 @@ command to generate the Python bindings in-place:
 
 ```bash
 # macOS / Linux (single line)
-python -m grpc_tools.protoc -I jito_protos/protos --python_out=python --grpc_python_out=python jito_protos/protos/shredstream/shredstream_proxy.proto
+python -m grpc_tools.protoc -I jito_protos/protos --python_out=python --grpc_python_out=python jito_protos/protos/shredstream.proto
 
 # Windows PowerShell (single line)
-python -m grpc_tools.protoc -I jito_protos/protos --python_out=python --grpc_python_out=python jito_protos/protos\shredstream\shredstream_proxy.proto
+python -m grpc_tools.protoc -I jito_protos/protos --python_out=python --grpc_python_out=python jito_protos/protos\shredstream.proto
 
 # Windows cmd.exe (use caret for line continuations)
 python -m grpc_tools.protoc ^
   -I jito_protos/protos ^
   --python_out=python ^
   --grpc_python_out=python ^
-  jito_protos/protos/shredstream/shredstream_proxy.proto
+  jito_protos/protos/shredstream.proto
 
 # Cross-platform helper (runs the command via a Python module)
 python -m python.generate_protos
 ```
 
-This writes `shredstream_proxy_pb2.py` and `shredstream_proxy_pb2_grpc.py` into the
+This writes `shredstream_pb2.py` and `shredstream_pb2_grpc.py` into the
 `python/jito_protos/shredstream/` package. The client automatically adds the `python/`
 directory to `PYTHONPATH`, so no additional packaging steps are required.
 

@@ -27,8 +27,8 @@ def _ensure_local_proto_path() -> None:
 
 _ensure_local_proto_path()
 
-from jito_protos.shredstream import shredstream_proxy_pb2 as shredstream_pb2  # noqa: E402  pylint: disable=wrong-import-position
-from jito_protos.shredstream import shredstream_proxy_pb2_grpc as shredstream_grpc  # noqa: E402  pylint: disable=wrong-import-position
+from jito_protos.shredstream import shredstream_pb2  # noqa: E402  pylint: disable=wrong-import-position
+from jito_protos.shredstream import shredstream_pb2_grpc as shredstream_grpc  # noqa: E402  pylint: disable=wrong-import-position
 from solders.pubkey import Pubkey  # noqa: E402  pylint: disable=wrong-import-position
 from solders.entry import Entries  # noqa: E402  pylint: disable=wrong-import-position
 
