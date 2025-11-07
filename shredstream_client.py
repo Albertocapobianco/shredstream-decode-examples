@@ -5,15 +5,32 @@ import argparse
 import asyncio
 import logging
 import os
+import sys
+from pathlib import Path
 from typing import Iterable, Optional, Sequence, Set
 
 import grpc
 from grpc import aio
 
-from jito_protos.shredstream import shredstream_proxy_pb2 as shredstream_pb2
-from jito_protos.shredstream import shredstream_proxy_pb2_grpc as shredstream_grpc
-from solders.pubkey import Pubkey
-from solders.entry import Entries
+
+def _ensure_local_proto_path() -> None:
+    """Add the local `python/` folder to ``sys.path`` if it exists.
+
+    This allows the client to pick up generated protobuf modules without
+    requiring them to be installed globally.
+    """
+
+    repo_python_dir = Path(__file__).resolve().parent / "python"
+    if repo_python_dir.exists() and str(repo_python_dir) not in sys.path:
+        sys.path.insert(0, str(repo_python_dir))
+
+
+_ensure_local_proto_path()
+
+from jito_protos.shredstream import shredstream_proxy_pb2 as shredstream_pb2  # noqa: E402  pylint: disable=wrong-import-position
+from jito_protos.shredstream import shredstream_proxy_pb2_grpc as shredstream_grpc  # noqa: E402  pylint: disable=wrong-import-position
+from solders.pubkey import Pubkey  # noqa: E402  pylint: disable=wrong-import-position
+from solders.entry import Entries  # noqa: E402  pylint: disable=wrong-import-position
 
 
 KEEPALIVE_OPTIONS: Sequence[tuple[str, int]] = (

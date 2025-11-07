@@ -41,7 +41,34 @@ Jito Shredstream Proxy: [https://github.com/jito-labs/shredstream-proxy]
 ## Python client
 
 A Python port of the streaming client is available in `shredstream_client.py`.
-Install the required dependencies (generated protos, `grpcio`, and `solders`) and run:
+
+### 1. Install Python dependencies
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements-python.txt
+```
+
+### 2. Generate the protobuf stubs
+
+The Python client expects the generated protobuf code under `python/jito_protos/shredstream/`.
+The repo already contains the `.proto` definitions under `jito_protos/protos/`; run the
+following command to generate the Python bindings in-place:
+
+```bash
+python -m grpc_tools.protoc \
+  -I jito_protos/protos \
+  --python_out=python \
+  --grpc_python_out=python \
+  jito_protos/protos/shredstream/shredstream_proxy.proto
+```
+
+This writes `shredstream_proxy_pb2.py` and `shredstream_proxy_pb2_grpc.py` into the
+`python/jito_protos/shredstream/` package. The client automatically adds the `python/`
+directory to `PYTHONPATH`, so no additional packaging steps are required.
+
+### 3. Run the client
 
 ```bash
 python shredstream_client.py --shredstream-uri <url> --x-token <authtoken>
