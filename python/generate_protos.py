@@ -8,8 +8,14 @@ import urllib.request
 from pathlib import Path
 from typing import Iterable
 
-import grpc_tools
-from grpc_tools import protoc
+try:
+    import grpc_tools
+    from grpc_tools import protoc
+except ModuleNotFoundError as exc:  # pragma: no cover - import guard
+    raise SystemExit(
+        "grpcio-tools is required to generate the protobuf bindings. "
+        "Install it with `pip install grpcio-tools`."
+    ) from exc
 
 
 RAW_BASE_URL = "https://raw.githubusercontent.com/jito-labs/mev-protos/main"
@@ -29,10 +35,10 @@ def _download(url: str, destination: Path) -> bool:
             textwrap.dedent(
                 f"""
                 Failed to download {url}: {exc}
-                Please either initialise the mev-protos submodule with
-                  git submodule update --init --recursive
-                or copy the contents of https://github.com/jito-labs/mev-protos
-                into jito_protos/protos/ manually.
+                The repository already includes the required protobuf files under
+                jito_protos/protos/. If you deleted them, restore the copies from git
+                or manually fetch the latest versions from
+                https://github.com/jito-labs/mev-protos.
                 """
             ).strip(),
             file=sys.stderr,

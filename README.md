@@ -1,7 +1,7 @@
 # Decode shredstreams
 
 ```bash
-git clone https://github.com/Shyft-to/shredstream-decode-examples.git --recurse-submodules
+git clone https://github.com/Shyft-to/shredstream-decode-examples.git
 
 cargo run -- --shredstream-uri <url> --x-token <authtoken>
 ```
@@ -52,28 +52,19 @@ pip install -r requirements-python.txt
 
 ### 2. Fetch the protobuf definitions
 
-The `.proto` files are provided via the [`mev-protos`](https://github.com/jito-labs/mev-protos)
-submodule that lives under `jito_protos/protos`. If you cloned this repository with git,
-initialize the submodule before generating any code:
-
-```bash
-git submodule update --init --recursive
-```
-
-If you downloaded a ZIP archive instead of cloning, manually download the
-`mev-protos` repository and copy its contents into `jito_protos/protos/` so that
-at least `jito_protos/protos/shredstream.proto` and `jito_protos/protos/shared.proto`
-exist locally.
+The necessary `.proto` files live under `jito_protos/protos/` and are now part of
+this repository, so no extra submodule checkout is required. If you prefer to
+pull the latest versions from [`mev-protos`](https://github.com/jito-labs/mev-protos),
+you can still replace the files manually, but the committed copies are enough to
+generate the Python bindings out of the box.
 
 ### 3. Generate the protobuf stubs
 
 The Python client expects the generated protobuf code under `python/jito_protos/shredstream/`.
-Once the `.proto` definitions are present in `jito_protos/protos/`, run one of the
-following commands to generate the Python bindings in-place. The helper now downloads
-both `shredstream.proto` and its dependency `shared.proto` automatically (for example
-when you downloaded this repository as a ZIP without submodules) and configures the
-include paths bundled with `grpcio-tools` so that `google/protobuf/*.proto` is found
-correctly:
+Once the `.proto` definitions are present in `jito_protos/protos/` (they ship with
+this repo), run one of the following commands to generate the Python bindings
+in-place. The helper configures the include paths bundled with `grpcio-tools` so
+that `google/protobuf/*.proto` is found correctly:
 
 ```bash
 # macOS / Linux (single line)
