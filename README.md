@@ -37,3 +37,81 @@ cargo run -- --shredstream-uri <url> --x-token <authtoken> --account-include 675
 ## Notes
 
 Jito Shredstream Proxy: [https://github.com/jito-labs/shredstream-proxy]
+
+## Python client
+
+A Python port of the streaming client is available in `shredstream_client.py`.
+
+### 1. Install Python dependencies
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements-python.txt
+```
+
+### 2. Fetch the protobuf definitions
+
+The `.proto` files are provided via the [`mev-protos`](https://github.com/jito-labs/mev-protos)
+submodule that lives under `jito_protos/protos`. If you cloned this repository with git,
+initialize the submodule before generating any code:
+
+```bash
+git submodule update --init --recursive
+```
+
+If you downloaded a ZIP archive instead of cloning, manually download the
+`mev-protos` repository and copy its contents into `jito_protos/protos/` so that
+at least `jito_protos/protos/shredstream.proto` and `jito_protos/protos/shared.proto`
+exist locally.
+
+### 3. Generate the protobuf stubs
+
+The Python client expects the generated protobuf code under `python/jito_protos/shredstream/`.
+Once the `.proto` definitions are present in `jito_protos/protos/`, run one of the
+following commands to generate the Python bindings in-place. The helper now downloads
+both `shredstream.proto` and its dependency `shared.proto` automatically (for example
+when you downloaded this repository as a ZIP without submodules) and configures the
+include paths bundled with `grpcio-tools` so that `google/protobuf/*.proto` is found
+correctly:
+
+```bash
+# macOS / Linux (single line)
+python -m grpc_tools.protoc -I jito_protos/protos --python_out=python --grpc_python_out=python jito_protos/protos/shared.proto jito_protos/protos/shredstream.proto
+
+# Windows PowerShell (single line)
+python -m grpc_tools.protoc -I jito_protos/protos --python_out=python --grpc_python_out=python jito_protos\protos\shared.proto jito_protos\protos\shredstream.proto
+
+# Windows cmd.exe (use caret for line continuations)
+python -m grpc_tools.protoc ^
+  -I jito_protos/protos ^
+  --python_out=python ^
+  --grpc_python_out=python ^
+  jito_protos/protos/shared.proto \
+  jito_protos/protos/shredstream.proto
+
+# Cross-platform helper (runs the command via a Python module)
+python -m python.generate_protos
+```
+
+This writes `shredstream_pb2.py` and `shredstream_pb2_grpc.py` into the
+`python/jito_protos/shredstream/` package. The client automatically adds the `python/`
+directory to `PYTHONPATH`, and if the generated modules are missing it will invoke the
+helper above for you. No additional packaging steps are required.
+
+### 4. Run the client
+
+```bash
+python shredstream_client.py --shredstream-uri <url> --x-token <authtoken>
+```
+
+On Windows you can use the `py` launcher with either the script path or the
+module flag:
+
+```powershell
+py shredstream_client.py --shredstream-uri <url> --x-token <authtoken>
+# or
+py -m shredstream_client --shredstream-uri <url> --x-token <authtoken>
+```
+
+You can also pass `--account-include` with a space-separated list of accounts to filter by.
