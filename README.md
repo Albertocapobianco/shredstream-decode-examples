@@ -55,8 +55,11 @@ pip install -r requirements-python.txt
 > (inclusi quelli dichiarati nei metadati del wheel) alla ricerca del tipo
 > `Entries`, provando percorsi come `solders.entry`, `solders.ledger.entry` e
 > qualsiasi modulo che contenga "entry" o "ledger" nel nome. Se nessuno dei
-> moduli installati espone `Entries`, installa un wheel che includa le binding
-> del ledger, ad esempio `pip install "solders[ledger]>=0.27"`.
+> moduli installati espone `Entries`, il client ripiega su un decoder puro
+> Python integrato che ricostruisce le transazioni leggendo direttamente il
+> formato binario degli `Entry`. Per prestazioni ottimali continua comunque a
+> essere consigliata l'installazione del wheel con le binding native del
+> ledger, ad esempio `pip install "solders[ledger]>=0.27"`.
 
 ### 2. Fetch the protobuf definitions
 

@@ -3,13 +3,14 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-import importlib
-import pkgutil
 import logging
 import os
 import sys
 from pathlib import Path
-from typing import Iterable, Optional, Sequence, Set
+from typing import Iterable, Iterator, List, Optional, Sequence, Set
+
+import importlib
+import pkgutil
 
 try:
     from importlib import metadata as importlib_metadata
@@ -56,8 +57,105 @@ except ImportError as import_error:  # noqa: E402  pylint: disable=wrong-import-
 from jito_protos.shredstream import shredstream_pb2
 from jito_protos.shredstream import shredstream_pb2_grpc as shredstream_grpc
 from solders.pubkey import Pubkey  # noqa: E402  pylint: disable=wrong-import-position
+from solders.transaction import VersionedTransaction  # noqa: E402  pylint: disable=wrong-import-position
+
+
+class PythonEntry:
+    """Lightweight container mirroring ``solders.ledger.entry.Entry``."""
+
+    __slots__ = ("num_hashes", "hash", "transactions")
+
+    def __init__(self, num_hashes: int, hash_bytes: bytes, transactions: Sequence[VersionedTransaction]):
+        self.num_hashes = num_hashes
+        self.hash = hash_bytes
+        self.transactions = tuple(transactions)
+
+    def __iter__(self) -> Iterator[VersionedTransaction]:
+        return iter(self.transactions)
+
+
+class PythonEntries(Sequence[PythonEntry]):
+    """Pure Python fallback for decoding ledger entries."""
+
+    __slots__ = ("_entries",)
+
+    def __init__(self, entries: Sequence[PythonEntry]):
+        self._entries = tuple(entries)
+
+    @classmethod
+    def from_bytes(cls, data: bytes) -> "PythonEntries":
+        buffer = memoryview(data)
+        offset = 0
+
+        total, offset = _read_varint(buffer, offset)
+        entries: List[PythonEntry] = []
+
+        for _ in range(total):
+            num_hashes, offset = _read_u64(buffer, offset)
+            hash_bytes, offset = _read_bytes(buffer, offset, 32)
+            tx_count, offset = _read_varint(buffer, offset)
+
+            transactions: List[VersionedTransaction] = []
+            for _ in range(tx_count):
+                length, offset = _read_varint(buffer, offset)
+                tx_bytes, offset = _read_bytes(buffer, offset, length)
+                transactions.append(VersionedTransaction.from_bytes(bytes(tx_bytes)))
+
+            entries.append(PythonEntry(num_hashes, bytes(hash_bytes), transactions))
+
+        if offset != len(buffer):
+            raise ValueError("Unexpected trailing bytes when decoding ledger entries")
+
+        return cls(entries)
+
+    def __iter__(self) -> Iterator[PythonEntry]:
+        return iter(self._entries)
+
+    def __len__(self) -> int:
+        return len(self._entries)
+
+    def __getitem__(self, index: int) -> PythonEntry:
+        return self._entries[index]
+
 
 Entries = None
+
+
+def _read_varint(buffer: memoryview, offset: int) -> tuple[int, int]:
+    value = 0
+    shift = 0
+
+    while True:
+        if offset >= len(buffer):
+            raise ValueError("Unexpected end of buffer while decoding varint")
+
+        byte = buffer[offset]
+        offset += 1
+        value |= (byte & 0x7F) << shift
+
+        if byte & 0x80 == 0:
+            break
+
+        shift += 7
+        if shift >= 64:
+            raise ValueError("Varint is too long")
+
+    return value, offset
+
+
+def _read_u64(buffer: memoryview, offset: int) -> tuple[int, int]:
+    return int.from_bytes(_slice_bytes(buffer, offset, 8), "little"), offset + 8
+
+
+def _read_bytes(buffer: memoryview, offset: int, length: int) -> tuple[memoryview, int]:
+    return _slice_bytes(buffer, offset, length), offset + length
+
+
+def _slice_bytes(buffer: memoryview, offset: int, length: int) -> memoryview:
+    end = offset + length
+    if end > len(buffer):
+        raise ValueError("Unexpected end of buffer while decoding bytes")
+    return buffer[offset:end]
 
 
 def _import_entries_from(module_name: str) -> Optional[type]:
@@ -128,17 +226,21 @@ def _load_entries_type() -> type:  # pragma: no cover - import side effect wrapp
     for module_name in sorted(candidate_modules):
         entries_type = _import_entries_from(module_name)
         if entries_type is not None:
-            logging.debug("Loaded Entries helper from %%s", module_name)
+            logging.debug("Loaded Entries helper from %s", module_name)
             return entries_type
 
-    raise ImportError(
-        "The installed `solders` wheel does not expose the `Entries` helper. "
-        "Install a wheel that includes the ledger bindings, for example "
-        "`pip install \"solders[ledger]>=0.27\"`."
+    raise ImportError("The installed `solders` wheel does not expose the `Entries` helper.")
+
+
+try:
+    Entries = _load_entries_type()
+except ImportError:
+    logging.getLogger(__name__).warning(
+        "Falling back to the built-in Python ledger decoder because the installed "
+        "`solders` wheel lacks ledger bindings. Install `solders[ledger]` for the "
+        "native implementation."
     )
-
-
-Entries = _load_entries_type()
+    Entries = PythonEntries
 
 
 KEEPALIVE_OPTIONS: Sequence[tuple[str, int]] = (
