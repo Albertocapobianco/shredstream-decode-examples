@@ -294,6 +294,40 @@ def _should_print_transaction(transaction, filter_accounts: Optional[Set[Pubkey]
     return any(key in filter_accounts for key in account_keys)
 
 
+BASE58_ALPHABET = frozenset("123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz")
+
+
+def _pubkey_error_hint(raw_value: str) -> str:
+    """Return a human-friendly hint when a pubkey fails to parse."""
+
+    hints: List[str] = []
+    stripped = raw_value.strip()
+
+    if stripped != raw_value:
+        hints.append("La chiave contiene spazi iniziali o finali: riprova senza spazi.")
+
+    length = len(stripped)
+    if length < 43:
+        hints.append(
+            "La chiave sembra troppo corta (circa 43-44 caratteri attesi per una chiave base58 valida). "
+            "Assicurati di averla copiata per intero."
+        )
+    elif length > 44:
+        hints.append(
+            "La chiave sembra troppo lunga: controlla di non aver aggiunto caratteri extra."
+        )
+
+    invalid_chars = sorted({char for char in stripped if char not in BASE58_ALPHABET})
+    if invalid_chars:
+        hints.append(
+            "Sono stati trovati caratteri non validi (solo base58 è ammesso): "
+            + "".join(invalid_chars)
+            + "."
+        )
+
+    return " ".join(hints)
+
+
 def parse_pubkeys(values: Optional[Sequence[str]]) -> Optional[Set[Pubkey]]:
     if not values:
         return None
@@ -303,7 +337,11 @@ def parse_pubkeys(values: Optional[Sequence[str]]) -> Optional[Set[Pubkey]]:
         try:
             parsed.add(Pubkey.from_string(value))
         except ValueError as exc:
-            raise SystemExit(f"Invalid pubkey provided: {value}") from exc
+            hint = _pubkey_error_hint(value)
+            message = f"Invalid pubkey provided: {value}."
+            if hint:
+                message += f" {hint}"
+            raise SystemExit(message) from exc
     return parsed
 
 

@@ -117,3 +117,8 @@ py -m shredstream_client --shredstream-uri <url> --x-token <authtoken>
 ```
 
 You can also pass `--account-include` with a space-separated list of accounts to filter by.
+
+> [!TIP]
+> Ogni chiave pubblica Solana in base58 rappresenta 32 byte e misura circa 43-44 caratteri.
+> Se il client segnala "Invalid pubkey provided", controlla di aver incollato l'intera
+> stringa (senza andare a capo) e che non ci siano spazi aggiuntivi prima o dopo.
