@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package shredstream;
+
+import "google/protobuf/timestamp.proto";
+import "shared.proto";
+
+message SubscribeEntriesRequest {}
+
+message ShredstreamEntryUpdate {
+  uint64 slot = 1;
+  bytes entries = 2;
+  google.protobuf.Timestamp timestamp = 3;
+  shared.Socket producer_socket = 4;
+}
+
+service ShredstreamProxy {
+  rpc SubscribeEntries(SubscribeEntriesRequest) returns (stream ShredstreamEntryUpdate);
+}
