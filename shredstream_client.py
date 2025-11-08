@@ -46,10 +46,21 @@ except ImportError as import_error:  # noqa: E402  pylint: disable=wrong-import-
             "ensure grpcio-tools is installed."
         ) from import_error
 
-    from jito_protos.shredstream import shredstream_pb2
-    from jito_protos.shredstream import shredstream_pb2_grpc as shredstream_grpc
+from jito_protos.shredstream import shredstream_pb2
+from jito_protos.shredstream import shredstream_pb2_grpc as shredstream_grpc
 from solders.pubkey import Pubkey  # noqa: E402  pylint: disable=wrong-import-position
-from solders.entry import Entries  # noqa: E402  pylint: disable=wrong-import-position
+
+try:  # noqa: E402  pylint: disable=wrong-import-position
+    from solders.entry import Entries
+except ModuleNotFoundError:  # pragma: no cover - platform-specific packaging quirk
+    try:
+        from solders.entry.entry import Entries  # type: ignore[attr-defined]
+    except ModuleNotFoundError as exc:  # pragma: no cover - defensive guard
+        raise ImportError(
+            "The installed `solders` wheel does not expose the `entry` helpers. "
+            "Please upgrade to solders>=0.21 or install a wheel that includes "
+            "the ledger entry bindings."
+        ) from exc
 
 
 KEEPALIVE_OPTIONS: Sequence[tuple[str, int]] = (

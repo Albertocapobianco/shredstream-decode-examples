@@ -50,6 +50,12 @@ source .venv/bin/activate
 pip install -r requirements-python.txt
 ```
 
+> [!NOTE]
+> Il client decodifica gli "entries" del ledger tramite il modulo `solders.entry`.
+> Alcuni wheel Windows meno recenti non espongono questo modulo: in tal caso
+> aggiornare `solders` (>= 0.21) oppure installare un wheel precompilato che
+> includa le binding degli entry.
+
 ### 2. Fetch the protobuf definitions
 
 The necessary `.proto` files live under `jito_protos/protos/` and are now part of
