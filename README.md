@@ -1,39 +1,78 @@
-# Decode shredstreams
+# Decode shredstreams (client Python)
+
+Questo repository ora contiene esclusivamente il client Python asincrono per
+collegarsi allo Shredstream Proxy di Jito, filtrare le transazioni e stamparle
+con un timestamp con precisione al millisecondo. Tutti i file del precedente
+esempio in Rust sono stati rimossi perché non più necessari.
+
+## Installazione rapida
 
 ```bash
-git clone https://github.com/Shyft-to/shredstream-decode-examples.git --recurse-submodules
-
-cargo run -- --shredstream-uri <url> --x-token <authtoken>
+git clone https://github.com/Shyft-to/shredstream-decode-examples.git
+cd shredstream-decode-examples
+python -m venv .venv
+source .venv/bin/activate  # su Windows: .venv\Scripts\activate
+pip install -r requirements-python.txt
 ```
 
-- `x-token` _optional_
-- `--account-include` (optional) → Space-separated list of accounts to filter transactions by. If omitted, all transactions will be printed.
+## Client Python
 
+Il client principale si trova in `shredstream_client.py` e usa gRPC per
+streammare gli slot dalla proxy. Puoi filtrare le transazioni per account e
+continuare a decodificarle anche se il pacchetto `solders` installato non
+include le binding native del ledger: in quel caso verrà usato il decoder
+Python integrato.
 
-![screenshot-1](assets/usage-screenshot-1.png?raw=true "Screenshot")
-## View Count
-If you only want to see counts of slots, entries, and transactions, remove the comments from this section in [main.rs](src/main.rs "main.rs"):
-```rust
-                // println!(
-                //     "slot {}, entries: {}, transactions: {}",
-                //     slot_entry.slot,
-                //     entries.len(),
-                //     entries.iter().map(|e| e.transactions.len()).sum::<usize>()
-                // );
-```
+### 1. Genera le stubs protobuf
 
-## View Transactions
-- By default, all transactions will be streamed and printed.
+Le definizioni `.proto` necessarie sono già incluse nella cartella
+`jito_protos/protos/`. Per rigenerare i moduli Python esegui:
 
-- To restrict output to transactions involving specific accounts, pass `--account-include`.
-### Example
 ```bash
-cargo run -- --shredstream-uri <url> --x-token <authtoken> --account-include 675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8 JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4
+python -m python.generate_protos
 ```
 
-### Preview:
-![screenshot-2](assets/usage-screenshot-2.png?raw=true "Stream transactions from shredstream")
+Lo script configura automaticamente gli include di `grpcio-tools` e produce i
+file `shredstream_pb2.py` e `shredstream_pb2_grpc.py` in
+`python/jito_protos/shredstream/`.
 
-## Notes
+### 2. Avvia il client
 
-Jito Shredstream Proxy: [https://github.com/jito-labs/shredstream-proxy]
+```bash
+python -m shredstream_client --shredstream-uri <url> --x-token <authtoken>
+```
+
+Su Windows puoi usare il launcher `py`:
+
+```powershell
+py -m shredstream_client --shredstream-uri <url> --x-token <authtoken>
+```
+
+Opzioni utili:
+
+- `--account-include` → elenco di chiavi pubbliche (separate da spazi) per
+  filtrare le transazioni di interesse.
+- `--keepalive-seconds` → intervallo del ping gRPC (default 15 secondi).
+- `--max-retries` → numero massimo di tentativi di riconnessione prima di
+  abortire.
+
+### 3. Note aggiuntive
+
+- `--shredstream-uri` accetta sia formati `host:porta` sia URL completi con
+  schema `http://` o `https://`. Nel caso di HTTPS viene aperto automaticamente
+  un canale TLS.
+- Ogni chiave pubblica Solana in base58 rappresenta 32 byte e misura circa
+  43-44 caratteri: assicurati di incollare l'intera stringa senza spazi extra.
+- Se il pacchetto `solders` installato non fornisce il tipo `Entries`, il
+  client ripiega su un decoder pure-Python e stampa un avviso. I wheel
+  pubblicati su PyPI al momento non includono le "ledger bindings" nemmeno
+  usando l'extra opzionale `ledger`; per ottenere l'implementazione nativa devi
+  installare un wheel costruito con tale feature (es. compilando `solders`
+  dai sorgenti come descritto nella documentazione ufficiale del progetto).
+
+## Risorse utili
+
+- Documentazione Shredstream Proxy:
+  <https://github.com/jito-labs/shredstream-proxy>
+- Protobuf ufficiali Jito (se vuoi aggiornarli manualmente):
+  <https://github.com/jito-labs/mev-protos>
