@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import importlib
 import logging
 import os
 import sys
@@ -50,17 +51,37 @@ from jito_protos.shredstream import shredstream_pb2
 from jito_protos.shredstream import shredstream_pb2_grpc as shredstream_grpc
 from solders.pubkey import Pubkey  # noqa: E402  pylint: disable=wrong-import-position
 
-try:  # noqa: E402  pylint: disable=wrong-import-position
-    from solders.entry import Entries
-except ModuleNotFoundError:  # pragma: no cover - platform-specific packaging quirk
-    try:
-        from solders.entry.entry import Entries  # type: ignore[attr-defined]
-    except ModuleNotFoundError as exc:  # pragma: no cover - defensive guard
-        raise ImportError(
-            "The installed `solders` wheel does not expose the `entry` helpers. "
-            "Please upgrade to solders>=0.21 or install a wheel that includes "
-            "the ledger entry bindings."
-        ) from exc
+Entries = None
+
+
+def _load_entries_type() -> type:  # pragma: no cover - import side effect wrapper
+    """Load the ``Entries`` helper from the installed ``solders`` wheel."""
+
+    candidates = (
+        "solders.entry",
+        "solders.entry.entry",
+        "solders.ledger.entry",
+        "solders.ledger.entries",
+    )
+
+    for dotted_path in candidates:
+        try:
+            module = importlib.import_module(dotted_path)
+        except ModuleNotFoundError:
+            continue
+
+        entries_type = getattr(module, "Entries", None)
+        if entries_type is not None:
+            return entries_type
+
+    raise ImportError(
+        "The installed `solders` wheel does not expose the `Entries` helper. "
+        "Please install a wheel that includes the ledger entry bindings, such as "
+        "solders>=0.21."
+    )
+
+
+Entries = _load_entries_type()
 
 
 KEEPALIVE_OPTIONS: Sequence[tuple[str, int]] = (
