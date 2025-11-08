@@ -1,0 +1,11 @@
+syntax = "proto3";
+
+package auth;
+
+message AuthenticateRequest {
+  string token = 1;
+}
+
+message AuthenticateResponse {
+  bool valid = 1;
+}
