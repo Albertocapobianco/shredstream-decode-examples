@@ -11,6 +11,11 @@ import sys
 from pathlib import Path
 from typing import Iterable, Optional, Sequence, Set
 
+try:
+    from importlib import metadata as importlib_metadata
+except ImportError:  # pragma: no cover - Python <3.8
+    import importlib_metadata  # type: ignore[no-redef]
+
 import grpc
 from grpc import aio
 
@@ -55,50 +60,81 @@ from solders.pubkey import Pubkey  # noqa: E402  pylint: disable=wrong-import-po
 Entries = None
 
 
-def _load_entries_type() -> type:  # pragma: no cover - import side effect wrapper
-    """Load the ``Entries`` helper from the installed ``solders`` wheel."""
+def _import_entries_from(module_name: str) -> Optional[type]:
+    try:
+        module = importlib.import_module(module_name)
+    except ModuleNotFoundError:
+        return None
 
-    candidates = (
-        "solders.entry",
-        "solders.entry.entry",
-        "solders.ledger.entry",
-        "solders.ledger.entries",
-        "solders.ledger.entry_pb2",
-    )
+    return getattr(module, "Entries", None)
 
-    for dotted_path in candidates:
-        try:
-            module = importlib.import_module(dotted_path)
-        except ModuleNotFoundError:
-            continue
 
-        entries_type = getattr(module, "Entries", None)
-        if entries_type is not None:
-            return entries_type
+def _discover_solders_modules() -> Set[str]:  # pragma: no cover - import side effect wrapper
+    modules: Set[str] = set()
 
     try:
         import solders  # type: ignore import-not-found
     except ModuleNotFoundError as exc:
         raise ImportError("The `solders` package is not installed.") from exc
 
-    for module_info in pkgutil.walk_packages(getattr(solders, "__path__", ()), prefix="solders."):
-        name = module_info.name
-        if not (name.endswith(("entry", "entries")) or "ledger" in name):
-            continue
+    solders_path = getattr(solders, "__path__", ())
+    modules.update(
+        module_info.name
+        for module_info in pkgutil.walk_packages(solders_path, prefix="solders.")
+        if "ledger" in module_info.name or module_info.name.endswith(("entry", "entries"))
+    )
 
-        try:
-            module = importlib.import_module(name)
-        except ModuleNotFoundError:
-            continue
+    try:
+        files = importlib_metadata.files("solders")
+    except Exception:  # pragma: no cover - metadata lookup is best effort
+        files = None
 
-        entries_type = getattr(module, "Entries", None)
+    if files is not None:
+        for file in files:
+            suffix = file.suffix
+            if suffix not in {".py", ".pyi", ".so", ".pyd"}:
+                continue
+
+            stem = file.with_suffix("")
+            parts = [part for part in stem.parts if part not in {"__pycache__"}]
+            if not parts or parts[0] != "solders":
+                continue
+
+            module_name = ".".join(parts)
+            if "ledger" in module_name or module_name.endswith(("entry", "entries")):
+                modules.add(module_name)
+
+    return modules
+
+
+def _load_entries_type() -> type:  # pragma: no cover - import side effect wrapper
+    """Load the ``Entries`` helper from the installed ``solders`` wheel."""
+
+    candidate_modules = {
+        "solders.entry",
+        "solders.entry.entry",
+        "solders.ledger.entry",
+        "solders.ledger.entries",
+        "solders.ledger.entry_pb2",
+    }
+
+    try:
+        candidate_modules.update(_discover_solders_modules())
+    except ImportError:
+        raise
+    except Exception:  # pragma: no cover - discovery is best effort
+        pass
+
+    for module_name in sorted(candidate_modules):
+        entries_type = _import_entries_from(module_name)
         if entries_type is not None:
+            logging.debug("Loaded Entries helper from %%s", module_name)
             return entries_type
 
     raise ImportError(
         "The installed `solders` wheel does not expose the `Entries` helper. "
-        "Please install a wheel that includes the ledger entry bindings, such as "
-        "solders>=0.21."
+        "Install a wheel that includes the ledger bindings, for example "
+        "`pip install \"solders[ledger]>=0.27\"`."
     )
 
 
