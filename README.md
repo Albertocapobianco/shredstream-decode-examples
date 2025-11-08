@@ -64,8 +64,11 @@ Opzioni utili:
 - Ogni chiave pubblica Solana in base58 rappresenta 32 byte e misura circa
   43-44 caratteri: assicurati di incollare l'intera stringa senza spazi extra.
 - Se il pacchetto `solders` installato non fornisce il tipo `Entries`, il
-  client ripiega su un decoder pure-Python. Per prestazioni ottimali installa
-  invece il wheel con le binding native: `pip install "solders[ledger]>=0.27"`.
+  client ripiega su un decoder pure-Python e stampa un avviso. I wheel
+  pubblicati su PyPI al momento non includono le "ledger bindings" nemmeno
+  usando l'extra opzionale `ledger`; per ottenere l'implementazione nativa devi
+  installare un wheel costruito con tale feature (es. compilando `solders`
+  dai sorgenti come descritto nella documentazione ufficiale del progetto).
 
 ## Risorse utili
 

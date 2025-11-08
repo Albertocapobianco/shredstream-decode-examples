@@ -329,8 +329,10 @@ try:
 except ImportError:
     logging.getLogger(__name__).warning(
         "Falling back to the built-in Python ledger decoder because the installed "
-        "`solders` wheel lacks ledger bindings. Install `solders[ledger]` for the "
-        "native implementation."
+        "`solders` wheel lacks ledger bindings. I wheel pubblicati su PyPI non "
+        "contengono al momento queste estensioni: installa un wheel costruito "
+        "con la feature `ledger` (ad esempio compilando `solders` dai sorgenti) "
+        "per ottenere l'implementazione nativa."
     )
     Entries = PythonEntries
 
