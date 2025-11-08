@@ -52,10 +52,11 @@ pip install -r requirements-python.txt
 
 > [!NOTE]
 > Il client prova automaticamente a importare il tipo `Entries` da
-> `solders.entry`, `solders.entry.entry`, `solders.ledger.entry` e
-> `solders.ledger.entries`. Se nessuno di questi moduli è presente nel wheel
-> installato, è necessario aggiornare `solders` (>= 0.21) oppure installare un
-> wheel precompilato che includa le binding degli entry.
+> `solders.entry`, `solders.entry.entry`, `solders.ledger.entry`,
+> `solders.ledger.entries` e da altri moduli del pacchetto `solders` che
+> contengono "entry" o "ledger" nel percorso. Se nessuno di questi moduli è
+> presente nel wheel installato, è necessario aggiornare `solders` (>= 0.21)
+> oppure installare un wheel precompilato che includa le binding degli entry.
 
 ### 2. Fetch the protobuf definitions
 

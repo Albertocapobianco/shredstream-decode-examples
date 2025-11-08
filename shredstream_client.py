@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import importlib
+import pkgutil
 import logging
 import os
 import sys
@@ -62,11 +63,31 @@ def _load_entries_type() -> type:  # pragma: no cover - import side effect wrapp
         "solders.entry.entry",
         "solders.ledger.entry",
         "solders.ledger.entries",
+        "solders.ledger.entry_pb2",
     )
 
     for dotted_path in candidates:
         try:
             module = importlib.import_module(dotted_path)
+        except ModuleNotFoundError:
+            continue
+
+        entries_type = getattr(module, "Entries", None)
+        if entries_type is not None:
+            return entries_type
+
+    try:
+        import solders  # type: ignore import-not-found
+    except ModuleNotFoundError as exc:
+        raise ImportError("The `solders` package is not installed.") from exc
+
+    for module_info in pkgutil.walk_packages(getattr(solders, "__path__", ()), prefix="solders."):
+        name = module_info.name
+        if not (name.endswith(("entry", "entries")) or "ledger" in name):
+            continue
+
+        try:
+            module = importlib.import_module(name)
         except ModuleNotFoundError:
             continue
 
