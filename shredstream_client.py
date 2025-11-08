@@ -75,6 +75,9 @@ class PythonEntry:
         return iter(self.transactions)
 
 
+LOGGER = logging.getLogger(__name__)
+
+
 class PythonEntries(Sequence[PythonEntry]):
     """Pure Python fallback for decoding ledger entries."""
 
@@ -103,8 +106,11 @@ class PythonEntries(Sequence[PythonEntry]):
 
             entries.append(PythonEntry(num_hashes, bytes(hash_bytes), transactions))
 
-        if offset != len(buffer):
-            raise ValueError("Unexpected trailing bytes when decoding ledger entries")
+        remaining = len(buffer) - offset
+        if remaining:
+            LOGGER.debug(
+                "Ignoring %d trailing byte(s) after decoding ledger entries", remaining
+            )
 
         return cls(entries)
 
