@@ -88,19 +88,18 @@ class PythonEntries(Sequence[PythonEntry]):
         buffer = memoryview(data)
         offset = 0
 
-        total, offset = _read_varint(buffer, offset)
+        total_entries, offset = _read_u64(buffer, offset)
         entries: List[PythonEntry] = []
 
-        for _ in range(total):
+        for _ in range(total_entries):
             num_hashes, offset = _read_u64(buffer, offset)
             hash_bytes, offset = _read_bytes(buffer, offset, 32)
-            tx_count, offset = _read_varint(buffer, offset)
+            tx_count, offset = _read_u64(buffer, offset)
 
             transactions: List[VersionedTransaction] = []
             for _ in range(tx_count):
-                length, offset = _read_varint(buffer, offset)
-                tx_bytes, offset = _read_bytes(buffer, offset, length)
-                transactions.append(VersionedTransaction.from_bytes(bytes(tx_bytes)))
+                tx_bytes, offset = _consume_versioned_transaction(buffer, offset)
+                transactions.append(VersionedTransaction.from_bytes(tx_bytes))
 
             entries.append(PythonEntry(num_hashes, bytes(hash_bytes), transactions))
 
@@ -122,30 +121,14 @@ class PythonEntries(Sequence[PythonEntry]):
 Entries = None
 
 
-def _read_varint(buffer: memoryview, offset: int) -> tuple[int, int]:
-    value = 0
-    shift = 0
-
-    while True:
-        if offset >= len(buffer):
-            raise ValueError("Unexpected end of buffer while decoding varint")
-
-        byte = buffer[offset]
-        offset += 1
-        value |= (byte & 0x7F) << shift
-
-        if byte & 0x80 == 0:
-            break
-
-        shift += 7
-        if shift >= 64:
-            raise ValueError("Varint is too long")
-
-    return value, offset
-
-
 def _read_u64(buffer: memoryview, offset: int) -> tuple[int, int]:
-    return int.from_bytes(_slice_bytes(buffer, offset, 8), "little"), offset + 8
+    slice_view = _slice_bytes(buffer, offset, 8)
+    return int.from_bytes(slice_view, "little"), offset + 8
+
+
+def _read_u8(buffer: memoryview, offset: int) -> tuple[int, int]:
+    slice_view = _slice_bytes(buffer, offset, 1)
+    return slice_view[0], offset + 1
 
 
 def _read_bytes(buffer: memoryview, offset: int, length: int) -> tuple[memoryview, int]:
@@ -157,6 +140,107 @@ def _slice_bytes(buffer: memoryview, offset: int, length: int) -> memoryview:
     if end > len(buffer):
         raise ValueError("Unexpected end of buffer while decoding bytes")
     return buffer[offset:end]
+
+
+def _consume_versioned_transaction(buffer: memoryview, offset: int) -> tuple[bytes, int]:
+    start = offset
+
+    signatures_len, offset = _read_short_u16(buffer, offset)
+    offset = _advance(offset, 64 * signatures_len, len(buffer))
+
+    offset = _consume_versioned_message(buffer, offset)
+
+    return bytes(buffer[start:offset]), offset
+
+
+def _consume_versioned_message(buffer: memoryview, offset: int) -> int:
+    first_byte, offset = _read_u8(buffer, offset)
+
+    if first_byte & 0x80:
+        version = first_byte & 0x7F
+        if version != 0:
+            raise ValueError(f"Unsupported message version: {version}")
+        return _consume_message_v0(buffer, offset)
+
+    return _consume_message_legacy(buffer, offset)
+
+
+def _consume_message_legacy(buffer: memoryview, offset: int) -> int:
+    # remaining header bytes
+    offset = _advance(offset, 2, len(buffer))
+
+    account_keys_len, offset = _read_short_u16(buffer, offset)
+    offset = _advance(offset, 32 * account_keys_len, len(buffer))
+
+    offset = _advance(offset, 32, len(buffer))  # recent_blockhash
+
+    instructions_len, offset = _read_short_u16(buffer, offset)
+    for _ in range(instructions_len):
+        offset = _consume_compiled_instruction(buffer, offset)
+
+    return offset
+
+
+def _consume_message_v0(buffer: memoryview, offset: int) -> int:
+    offset = _advance(offset, 3, len(buffer))  # message header
+
+    account_keys_len, offset = _read_short_u16(buffer, offset)
+    offset = _advance(offset, 32 * account_keys_len, len(buffer))
+
+    offset = _advance(offset, 32, len(buffer))  # recent_blockhash
+
+    instructions_len, offset = _read_short_u16(buffer, offset)
+    for _ in range(instructions_len):
+        offset = _consume_compiled_instruction(buffer, offset)
+
+    lookups_len, offset = _read_short_u16(buffer, offset)
+    for _ in range(lookups_len):
+        offset = _advance(offset, 32, len(buffer))  # account_key
+
+        writable_len, offset = _read_short_u16(buffer, offset)
+        offset = _advance(offset, writable_len, len(buffer))
+
+        readonly_len, offset = _read_short_u16(buffer, offset)
+        offset = _advance(offset, readonly_len, len(buffer))
+
+    return offset
+
+
+def _consume_compiled_instruction(buffer: memoryview, offset: int) -> int:
+    offset = _advance(offset, 1, len(buffer))  # program_id_index
+
+    accounts_len, offset = _read_short_u16(buffer, offset)
+    offset = _advance(offset, accounts_len, len(buffer))
+
+    data_len, offset = _read_short_u16(buffer, offset)
+    offset = _advance(offset, data_len, len(buffer))
+
+    return offset
+
+
+def _read_short_u16(buffer: memoryview, offset: int) -> tuple[int, int]:
+    value = 0
+    shift = 0
+
+    for _ in range(3):
+        byte, offset = _read_u8(buffer, offset)
+        value |= (byte & 0x7F) << shift
+
+        if byte & 0x80 == 0:
+            if value > 0xFFFF:
+                raise ValueError("Short vector length exceeds u16 range")
+            return value, offset
+
+        shift += 7
+
+    raise ValueError("Short vector length uses more than three bytes")
+
+
+def _advance(offset: int, length: int, total: int) -> int:
+    end = offset + length
+    if end > total:
+        raise ValueError("Unexpected end of buffer while decoding data")
+    return end
 
 
 def _import_entries_from(module_name: str) -> Optional[type]:
