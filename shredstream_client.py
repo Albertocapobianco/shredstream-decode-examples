@@ -6,6 +6,7 @@ import asyncio
 import logging
 import os
 import sys
+from datetime import datetime
 from pathlib import Path
 from typing import Iterable, Iterator, List, Optional, Sequence, Set, Tuple
 from urllib.parse import urlparse
@@ -408,7 +409,8 @@ async def stream_entries(
             for entry in entries:
                 for transaction in entry.transactions:
                     if _should_print_transaction(transaction, filter_accounts):
-                        print(f"Transaction: {transaction}\n")
+                        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+                        print(f"[{timestamp}] Transaction: {transaction}\n")
 
 
 def _should_print_transaction(transaction, filter_accounts: Optional[Set[Pubkey]]) -> bool:
