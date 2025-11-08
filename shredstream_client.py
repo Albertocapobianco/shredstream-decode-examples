@@ -7,7 +7,8 @@ import logging
 import os
 import sys
 from pathlib import Path
-from typing import Iterable, Iterator, List, Optional, Sequence, Set
+from typing import Iterable, Iterator, List, Optional, Sequence, Set, Tuple
+from urllib.parse import urlparse
 
 import importlib
 import pkgutil
@@ -253,6 +254,36 @@ KEEPALIVE_OPTIONS: Sequence[tuple[str, int]] = (
 )
 
 
+def _normalize_endpoint(raw_endpoint: str) -> Tuple[str, Optional[grpc.ChannelCredentials]]:
+    """Return a gRPC target string and optional credentials from a URI."""
+
+    if "://" not in raw_endpoint:
+        return raw_endpoint, None
+
+    parsed = urlparse(raw_endpoint)
+
+    if not parsed.hostname:
+        raise ValueError(
+            "L'URI fornito non contiene un host valido. Esempio: https://example.com:443"
+        )
+
+    if parsed.scheme not in {"http", "https"}:
+        raise ValueError(
+            "Schema URI non supportato. Usa http:// o https:// oppure specifica direttamente host:porta."
+        )
+
+    port = parsed.port
+    if port is None:
+        port = 443 if parsed.scheme == "https" else 80
+
+    target = f"{parsed.hostname}:{port}"
+
+    if parsed.scheme == "https":
+        return target, grpc.ssl_channel_credentials()
+
+    return target, None
+
+
 async def stream_entries(
     endpoint: str,
     x_token: Optional[str],
@@ -261,7 +292,17 @@ async def stream_entries(
     """Connect to the shredstream proxy and print filtered transactions."""
     metadata: Sequence[tuple[str, str]] = (("x-token", x_token),) if x_token else ()
 
-    async with aio.insecure_channel(endpoint, options=KEEPALIVE_OPTIONS) as channel:
+    target, credentials = _normalize_endpoint(endpoint)
+
+    channel_factory = (
+        aio.secure_channel if credentials is not None else aio.insecure_channel
+    )
+
+    channel_kwargs = {"options": KEEPALIVE_OPTIONS}
+    if credentials is not None:
+        channel_kwargs["credentials"] = credentials
+
+    async with channel_factory(target, **channel_kwargs) as channel:
         client = shredstream_grpc.ShredstreamProxyStub(channel)
         request = shredstream_pb2.SubscribeEntriesRequest()
 
@@ -352,6 +393,8 @@ async def run_forever(args: argparse.Namespace) -> None:
         try:
             await stream_entries(args.shredstream_uri, args.x_token, filter_accounts)
             logging.info("Stream ended gracefully. Reconnecting…")
+        except ValueError as exc:
+            raise SystemExit(str(exc)) from exc
         except grpc.RpcError as exc:
             logging.error("Connection or stream error: %s. Retrying…", exc)
 

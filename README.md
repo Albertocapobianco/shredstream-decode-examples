@@ -118,6 +118,12 @@ py -m shredstream_client --shredstream-uri <url> --x-token <authtoken>
 
 You can also pass `--account-include` with a space-separated list of accounts to filter by.
 
+> [!NOTE]
+> Il parametro `--shredstream-uri` accetta sia `host:porta` sia URL completi con schema.
+> Se passi un endpoint `https://example.com` il client userà automaticamente TLS (porta
+> predefinita 443 se non specificata); con `http://` oppure senza schema userà invece una
+> connessione non cifrata.
+
 > [!TIP]
 > Ogni chiave pubblica Solana in base58 rappresenta 32 byte e misura circa 43-44 caratteri.
 > Se il client segnala "Invalid pubkey provided", controlla di aver incollato l'intera
